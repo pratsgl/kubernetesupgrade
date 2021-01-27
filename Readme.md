@@ -2,6 +2,17 @@
 The following document show how to upgrade Kubernetes  from version 1.18.2 to version 1.19.2 on Kubernetes cluster running on RHEL7/Centos7.
 Its a 3 node cluster 1 Master & 2 Worker nodes . We already have K8s cluster with v1.18.2 running on Centos7 
 
+The upgrade workflow at high level is the following:
+
+Upgrade the primary control plane node (kmaster).
+
+   - Upgrade worker nodes (kworker1).
+   - Upgrade additional woker nodes (kworker2).
+
+Additional information
+
+    All containers are restarted after upgrade, because the container spec hash value is changed.
+    You only can upgrade from one MINOR version to the next MINOR version, or between PATCH versions of the same MINOR. That is, you cannot skip MINOR versions when you upgrade.  For example, you can upgrade from 1.y to 1.y+1, but not from 1.y to 1.y+2
 ```
 user@lab-server:~/projects/kubernetes/vagrant-provisioning$ kubectl get node 
 NAME                 STATUS   ROLES    AGE    VERSION
@@ -18,9 +29,12 @@ nginx-f89759699-rqfhm   1/1     Running   0          17m   192.168.94.1     kwor
 ```
 Now we shall upgrade K8s cluster from version 1.18.2 to version 1.19.2 - we need to make sure our nginx pods do not get disturbed
 
-## On Master Node (login as root)
+## Upgrading control plane node,  On kmaster Node (login as root)
+
+-	On the control plane node, run:
 
 ```
+
 [root@kmaster ~]# kubeadm  version
 kubeadm version: &version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.2", GitCommit:"52c56ce7a8272c798dbc29846288d7cd9fbae032", GitTreeState:"clean", BuildDate:"2020-04-16T11:54:15Z", GoVersion:"go1.13.9", Compiler:"gc", Platform:"linux/amd64"}
 
