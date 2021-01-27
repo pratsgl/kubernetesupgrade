@@ -1,6 +1,6 @@
 # Upgrade Kubernetes  from version 1.18.2 to version 1.19.2
 The following document show how to upgrade Kubernetes  from version 1.18.2 to version 1.19.2 on Kubernetes cluster running on RHEL7/Centos7.
-We already have K8s cluster with v1.18.2 running on Centos7 
+Its a 3 node cluster 1 Master & 2 Worker nodes . We already have K8s cluster with v1.18.2 running on Centos7 
 
 ```
 user@lab-server:~/projects/kubernetes/vagrant-provisioning$ kubectl get node 
@@ -65,4 +65,59 @@ Updated:
   kubeadm.x86_64 0:1.19.2-0                                                                                                                 
 
 Complete!
+```
+Now lets check the kubeadm version on kmaster node
+```
+[root@kmaster ~]# kubeadm  version
+kubeadm version: &version.Info{Major:"1", Minor:"19", GitVersion:"v1.19.2", GitCommit:"f5743093fd1c663cb0cbc89748f730662345d44d", GitTreeState:"clean", BuildDate:"2020-09-16T13:38:53Z", GoVersion:"go1.15", Compiler:"gc", Platform:"linux/amd64"}
+```
+
+```
+[root@kmaster ~]# kubeadm  upgrade plan
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[preflight] Running pre-flight checks.
+[upgrade] Running cluster health checks
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: v1.18.15
+[upgrade/versions] kubeadm version: v1.19.2
+I0127 09:27:49.529928    4455 version.go:252] remote version is much newer: v1.20.2; falling back to: stable-1.19
+[upgrade/versions] Latest stable version: v1.19.7
+[upgrade/versions] Latest stable version: v1.19.7
+[upgrade/versions] Latest version in the v1.18 series: v1.18.15
+[upgrade/versions] Latest version in the v1.18 series: v1.18.15
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       AVAILABLE
+kubelet     3 x v1.18.2   v1.19.7
+
+Upgrade to the latest stable version:
+
+COMPONENT                 CURRENT    AVAILABLE
+kube-apiserver            v1.18.15   v1.19.7
+kube-controller-manager   v1.18.15   v1.19.7
+kube-scheduler            v1.18.15   v1.19.7
+kube-proxy                v1.18.15   v1.19.7
+CoreDNS                   1.6.7      1.7.0
+etcd                      3.4.3-0    3.4.13-0
+
+You can now apply the upgrade by executing the following command:
+
+	kubeadm upgrade apply v1.19.7
+
+Note: Before you can perform this upgrade, you have to update kubeadm to v1.19.7.
+
+_____________________________________________________________________
+
+
+The table below shows the current state of component configs as understood by this version of kubeadm.
+Configs that have a "yes" mark in the "MANUAL UPGRADE REQUIRED" column require manual config upgrade or
+resetting to kubeadm defaults before a successful upgrade can be performed. The version to manually
+upgrade to is denoted in the "PREFERRED VERSION" column.
+
+API GROUP                 CURRENT VERSION   PREFERRED VERSION   MANUAL UPGRADE REQUIRED
+kubeproxy.config.k8s.io   v1alpha1          v1alpha1            no
+kubelet.config.k8s.io     v1beta1           v1beta1             no
+_____________________________________________________________________
 ```
