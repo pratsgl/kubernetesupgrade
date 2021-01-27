@@ -32,13 +32,17 @@ Now we shall upgrade K8s cluster from version 1.18.2 to version 1.19.2 - we need
 ## Upgrading control plane node,  On kmaster Node (login as root)
 
 -	On the control plane node, run:
-
+You should see output similar to this:
 ```
-
 [root@kmaster ~]# kubeadm  version
 kubeadm version: &version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.2", GitCommit:"52c56ce7a8272c798dbc29846288d7cd9fbae032", GitTreeState:"clean", BuildDate:"2020-04-16T11:54:15Z", GoVersion:"go1.13.9", Compiler:"gc", Platform:"linux/amd64"}
+```
 
+```
 [root@kmaster ~]# yum upgrade -y kubeadm-1.19.2
+```
+You should see output similar to this:
+```
 Loaded plugins: fastestmirror
 Loading mirror speeds from cached hostfile
  * base: mirrors.piconets.webwerks.in
@@ -135,6 +139,12 @@ kubeproxy.config.k8s.io   v1alpha1          v1alpha1            no
 kubelet.config.k8s.io     v1beta1           v1beta1             no
 _____________________________________________________________________
 ```
+This command checks that your cluster can be upgraded, and fetches the versions you can upgrade to. It also shows a table with the component config version states.
+
+Note: kubeadm upgrade also automatically renews the certificates that it manages on this node. To opt-out of certificate renewal the flag --certificate-renewal=false can be used. For more information see the certificate management guide.
+Note: If kubeadm upgrade plan shows any component configs that require manual upgrade, users must provide a config file with replacement configs to kubeadm upgrade apply via the --config command line flag. Failing to do so will cause kubeadm upgrade apply to exit with an error and not perform an upgrade.
+
+Choose a version to upgrade to, and run the appropriate command. For example:v1.19.2
 ```
 [root@kmaster ~]# kubeadm upgrade apply v1.19.2
 [upgrade/config] Making sure the configuration is correct:
@@ -256,7 +266,7 @@ kmaster.mylab.com    Ready,SchedulingDisabled   master   115m   v1.18.2   172.42
 kworker1.mylab.com   Ready                      <none>   110m   v1.18.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
 kworker2.mylab.com   Ready                      <none>   106m   v1.18.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
 ```
-On Master Node , now upgrade kubelet
+On Master Node , Upgrade kubelet and kubectl 
 ```
 [root@kmaster kubernetes]# yum upgrade -y kubelet-1.19.2 
 Loaded plugins: fastestmirror
@@ -331,7 +341,7 @@ Jan 27 09:51:03 kmaster.mylab.com kubelet[26540]: I0127 09:51:03.217485   26540 
 Hint: Some lines were ellipsized, use -l to show in full.
 ```
 
-On Control node Pods sre running fine
+On Control node Pods are running fine
 ```
 user@lab-server:~/projects/kubernetes$ kubectl get all -o wide
 NAME                        READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
@@ -357,6 +367,7 @@ kworker2.mylab.com   Ready                      <none>   113m   v1.18.2
 ```
 
 NOW UNCORDON THE MASTER NODE , SO MASTER WILL BE IN "Ready" STATUS
+Bring the node back online by marking it schedulable:
 ```
 user@lab-server:~/projects/kubernetes$ kubectl uncordon kmaster.mylab.com
 node/kmaster.mylab.com uncordoned
@@ -367,10 +378,12 @@ kmaster.mylab.com    Ready    master   123m   v1.19.2
 kworker1.mylab.com   Ready    <none>   118m   v1.18.2
 kworker2.mylab.com   Ready    <none>   114m   v1.18.2
 ```
+## Upgrade worker nodes
 
 Now lets upgrade on KWORKER1 Node
 
 Login as root to KWORKER1
+Prepare the KWORKER1 node for maintenance by marking it unschedulable and evicting the workloads:
 ```
 user@lab-server:~/projects/kubernetes$ kubectl drain kworker1.mylab.com --ignore-daemonsets
 node/kworker1.mylab.com cordoned
@@ -382,7 +395,7 @@ pod/coredns-f9fd979d6-fb22q evicted
 pod/calico-kube-controllers-d85d4bdcd-cr86j evicted
 pod/nginx-f89759699-rqfhm evicted
 node/kworker1.mylab.com evicted
-user@lab-server:~/projects/kubernetes$ 
+
 ```
  FROM CONTROL NODE : NOW WE CAN SEE THE NGINXPOD GOT DELETED FROM KWORKER1 & GOT CREATED ON KWORKER2
  ```
@@ -406,7 +419,9 @@ ON KWORKER1 as root
 ```
 [root@kworker1 ~]# kubelet --version | cut -d '' -f 2
 Kubernetes v1.18.2
-
+```
+Upgrade kubeadm on worker node1
+```
 [root@kworker1 ~]# kubeadm upgrade node
 [upgrade] Reading configuration from the cluster...
 [upgrade] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
@@ -415,10 +430,11 @@ Kubernetes v1.18.2
 [kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
 [upgrade] The configuration for this node was successfully updated!
 [upgrade] Now you should go ahead and upgrade the kubelet package using your package manager.
+```
+Upgrade kubelet and kubectl 
 
-
+```
 [root@kworker1 ~]# yum upgrade -y kubelet-1.19.2 kubectl-1.19.2 --disableexcludes=kubernetes
-
 Downloading packages:
 No Presto metadata available for kubernetes
 (1/2): b1b077555664655ba01b2c68d13239eaf9db1025287d0d9ccaeb4a8850c7a9b7-kubectl-1.19.2-0.x86_64.rpm                  | 9.0 MB  00:00:03     
@@ -506,20 +522,23 @@ kworker2.mylab.com   Ready                      <none>   143m   v1.18.2
 ```
 
 NOW WE HAVE SUCCESSFULLY UPGRADED KWORKER1 TO 1.19.2 , LETS UNCORDON KWORKER1
+Bring the node back online by marking it schedulable
 
 ```
 user@lab-server:~/projects/kubernetes$ kubectl uncordon kworker1.mylab.com
 node/kworker1.mylab.com uncordoned
-
+```
+Verify the status of the cluster 
+```
 user@lab-server:~/projects/kubernetes$ kubectl get nodes
 NAME                 STATUS   ROLES    AGE    VERSION
 kmaster.mylab.com    Ready    master   154m   v1.19.2
 kworker1.mylab.com   Ready    <none>   148m   v1.19.2
 kworker2.mylab.com   Ready    <none>   145m   v1.18.2
 ```
+The STATUS column should show Ready for all your nodes, and the version number should be updated
 
 NOW LET US UPGRADE KWORKER2 , DRAIN THE PODS 
-
 ```
 user@lab-server:~/projects/kubernetes$ kubectl drain kworker2.mylab.com --ignore-daemonsets
 node/kworker2.mylab.com cordoned
@@ -720,8 +739,34 @@ kmaster.mylab.com    Ready    master   166m   v1.19.2
 kworker1.mylab.com   Ready    <none>   160m   v1.19.2
 kworker2.mylab.com   Ready    <none>   157m   v1.19.2
 user@lab-server:~/projects/kubernetes$
-
 ```
+
+## How it works
+```kubeadm upgrade apply``` does the following:
+
+    Checks that your cluster is in an upgradeable state:
+        The API server is reachable
+        All nodes are in the Ready state
+        The control plane is healthy
+    Enforces the version skew policies.
+    Makes sure the control plane images are available or available to pull to the machine.
+    Generates replacements and/or uses user supplied overwrites if component configs require version upgrades.
+    Upgrades the control plane components or rollbacks if any of them fails to come up.
+    Applies the new kube-dns and kube-proxy manifests and makes sure that all necessary RBAC rules are created.
+    Creates new certificate and key files of the API server and backs up old files if they're about to expire in 180 days.
+
+``` kubeadm upgrade node ``` does the following on additional control plane nodes:
+
+    Fetches the kubeadm ClusterConfiguration from the cluster.
+    Optionally backups the kube-apiserver certificate.
+    Upgrades the static Pod manifests for the control plane components.
+    Upgrades the kubelet configuration for this node.
+
+``` kubeadm upgrade node``` does the following on worker nodes:
+
+    Fetches the kubeadm ClusterConfiguration from the cluster.
+    Upgrades the kubelet configuration for this node.
+
 
 SOURCE :: 
 * Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
