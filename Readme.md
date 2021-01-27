@@ -710,5 +710,4 @@ user@lab-server:~/projects/kubernetes$
 ```
 
 SOURCE :: 
-- How to upgrade your Kubernetes Cluster : https://www.youtube.com/watch?v=-MZ-l2HG368
 - Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
