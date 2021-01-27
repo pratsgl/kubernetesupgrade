@@ -767,5 +767,4 @@ user@lab-server:~/projects/kubernetes$
     Upgrades the kubelet configuration for this node.
 
 
-SOURCE :: 
 * Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
