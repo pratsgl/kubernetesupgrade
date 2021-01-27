@@ -710,4 +710,4 @@ user@lab-server:~/projects/kubernetes$
 ```
 
 SOURCE :: 
-- Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
+* Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
