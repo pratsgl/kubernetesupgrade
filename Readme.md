@@ -4,8 +4,7 @@ Its a 3 node cluster 1 Master & 2 Worker nodes . We already have K8s cluster wit
 
 The upgrade workflow at high level is the following:
 
-Upgrade the primary control plane node (kmaster).
-
+   - Upgrade the primary control plane node (kmaster).
    - Upgrade worker nodes (kworker1).
    - Upgrade additional woker nodes (kworker2).
 
