@@ -786,5 +786,8 @@ user@lab-server:~/projects/kubernetes$
     Fetches the kubeadm ClusterConfiguration from the cluster.
     Upgrades the kubelet configuration for this node.
 
+Conclusion
+
+Upgrade Kubernetes cluster is a key requirement for a DevOPS in any production environment. To get the updated features of Kubernetes it is advised to up and run with an updated cluster version. By following 5 steps for each node we can complete the full upgrade process. 
 
 * Documentation refrence : https://v1-19.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
