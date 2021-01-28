@@ -155,7 +155,27 @@ This command checks that your cluster can be upgraded, and fetches the versions 
 Note: kubeadm upgrade also automatically renews the certificates that it manages on this node. To opt-out of certificate renewal the flag --certificate-renewal=false can be used. For more information see the certificate management guide.
 Note: If kubeadm upgrade plan shows any component configs that require manual upgrade, users must provide a config file with replacement configs to kubeadm upgrade apply via the --config command line flag. Failing to do so will cause kubeadm upgrade apply to exit with an error and not perform an upgrade.
 
+#### Drain the node
+
+Prepare the node for maintenance by marking it unschedulable and evicting the workloads:
+```
+user@lab-server:~/projects/kubernetes$ kubectl drain kmaster.mylab.com --ignore-daemonsets
+node/kmaster.mylab.com cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-g576h, kube-system/kube-proxy-t4tq6
+evicting pod kube-system/calico-kube-controllers-d85d4bdcd-jcvw7
+pod/calico-kube-controllers-d85d4bdcd-jcvw7 evicted
+node/kmaster.mylab.com evicted
+user@lab-server:~/projects/kubernetes$
+```
+```
+user@lab-server:~/projects/kubernetes$ kubectl get nodes -o wide
+NAME                 STATUS                     ROLES    AGE    VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+kmaster.mylab.com    Ready,SchedulingDisabled   master   115m   v1.18.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker1.mylab.com   Ready                      <none>   110m   v1.18.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker2.mylab.com   Ready                      <none>   106m   v1.18.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+```
 Choose a version to upgrade to, and run the appropriate command. For example:v1.19.2
+
 ### Let’s upgrade now.
 Upgrade Kubernetes Cluster
 Run the command which we got from the above output. This will pull the required images and start to upgrade the cluster.
@@ -263,23 +283,7 @@ user@lab-server:~/projects/kubernetes$ kubectl version --short
 Client Version: v1.18.4
 Server Version: v1.19.2
 ```
-On control machine , Let’s see how to drain the host 
-```
-user@lab-server:~/projects/kubernetes$ kubectl drain kmaster.mylab.com --ignore-daemonsets
-node/kmaster.mylab.com cordoned
-WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-g576h, kube-system/kube-proxy-t4tq6
-evicting pod kube-system/calico-kube-controllers-d85d4bdcd-jcvw7
-pod/calico-kube-controllers-d85d4bdcd-jcvw7 evicted
-node/kmaster.mylab.com evicted
-user@lab-server:~/projects/kubernetes$
-```
-```
-user@lab-server:~/projects/kubernetes$ kubectl get nodes -o wide
-NAME                 STATUS                     ROLES    AGE    VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
-kmaster.mylab.com    Ready,SchedulingDisabled   master   115m   v1.18.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
-kworker1.mylab.com   Ready                      <none>   110m   v1.18.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
-kworker2.mylab.com   Ready                      <none>   106m   v1.18.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
-```
+
 On Master Node , Upgrade kubelet and kubectl 
 ```
 [root@kmaster kubernetes]# yum upgrade -y kubelet-1.19.2 
