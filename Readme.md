@@ -1,9 +1,10 @@
-# Upgrade Kubernetes  from version 1.18.2 to version 1.19.2
-The following document show how to upgrade Kubernetes  from version 1.18.2 to version 1.19.2 on Kubernetes cluster running on RHEL7/Centos7.
+# Upgrade Kubernetes Cluster from version 1.18.2 to version 1.19.2 with zero downtime
+Upgrade Kubernetes Cluster, This requirement will be expected in any production environment. Everyone will be happy if there is no downtime for their production.
+Today let’s try to upgrade my home lab Kubernetes cluster running with kubeadm. I’m running with three virtual machines for my home lab. However, the same steps are applied for any number of nodes in a critical production environment. The Kubernetes cluster can be upgraded without a zero downtime by transferring the loads from one node to another.
+The following document show how to upgrade Kubernetes from version 1.18.2 to version 1.19.2 on Kubernetes cluster running on RHEL7/Centos7.
 Its a 3 node cluster 1 Master & 2 Worker nodes . We already have K8s cluster with v1.18.2 running on Centos7 
 
 The upgrade workflow at high level is the following:
-
    - Upgrade the primary control plane node (kmaster).
    - Upgrade worker nodes (kworker1).
    - Upgrade additional woker nodes (kworker2).
@@ -19,7 +20,7 @@ kmaster.mylab.com    Ready    master   12m   v1.18.2
 kworker1.mylab.com   Ready    <none>   12m   v1.18.2
 kworker2.mylab.com   Ready    <none>   11m   v1.18.2
 ```
-And nginx pods (as deployment) running on each worker nodes kworker1 & kworker2
+We are running with few of nginx deployment and its pods on worker nodes kworker1 & kworker2. In any case, during our cluster version upgrade it should not be disturbed.
 ```
 user@lab-server:~/projects/kubernetes$ kubectl get pods -o wide
 NAME                    READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
@@ -28,8 +29,16 @@ nginx-f89759699-rqfhm   1/1     Running   0          17m   192.168.94.1     kwor
 ```
 Now we shall upgrade K8s cluster from version 1.18.2 to version 1.19.2 - we need to make sure our nginx pods do not get disturbed
 
-## Upgrading control plane node,  On kmaster Node (login as root)
+## Upgrading control plane node, aka kmaster Node (login as root)
+The Current version is v1.18.2 let’s plan to upgrade Kubernetes cluster version to 1.19.2. To know the version we can run the commands
 
+```
+$ kubectl get node 
+NAME                 STATUS   ROLES    AGE    VERSION
+kmaster.mylab.com    Ready    master   12m   v1.18.2
+kworker1.mylab.com   Ready    <none>   12m   v1.18.2
+kworker2.mylab.com   Ready    <none>   11m   v1.18.2
+```
 -	On the control plane node, run:
 You should see output similar to this:
 ```
@@ -88,7 +97,6 @@ Now lets check the kubeadm version on kmaster node
 [root@kmaster ~]# kubeadm  version
 kubeadm version: &version.Info{Major:"1", Minor:"19", GitVersion:"v1.19.2", GitCommit:"f5743093fd1c663cb0cbc89748f730662345d44d", GitTreeState:"clean", BuildDate:"2020-09-16T13:38:53Z", GoVersion:"go1.15", Compiler:"gc", Platform:"linux/amd64"}
 ```
-
 ```
 [root@kmaster ~]# kubeadm  upgrade plan
 [upgrade/config] Making sure the configuration is correct:
@@ -247,8 +255,8 @@ user@lab-server:~/projects/kubernetes$ kubectl version --short
 Client Version: v1.18.4
 Server Version: v1.19.2
 ```
+On control machine , Let’s see how to drain the host 
 
-On control machine
 ```
 user@lab-server:~/projects/kubernetes$ kubectl drain kmaster.mylab.com --ignore-daemonsets
 node/kmaster.mylab.com cordoned
