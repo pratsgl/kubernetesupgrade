@@ -97,6 +97,10 @@ Now lets check the kubeadm version on kmaster node
 [root@kmaster ~]# kubeadm  version
 kubeadm version: &version.Info{Major:"1", Minor:"19", GitVersion:"v1.19.2", GitCommit:"f5743093fd1c663cb0cbc89748f730662345d44d", GitTreeState:"clean", BuildDate:"2020-09-16T13:38:53Z", GoVersion:"go1.15", Compiler:"gc", Platform:"linux/amd64"}
 ```
+To start with the upgrade, the kubeadm will provide with a plan. Using the plan we are good to proceed safely and smoothly.
+
+It will print the current cluster version, available latest stable version. Moreover, it will print the Kubernetes cluster components which are available for upgrade. Finally, it will print the command for an upgrade.
+
 ```
 [root@kmaster ~]# kubeadm  upgrade plan
 [upgrade/config] Making sure the configuration is correct:
@@ -152,6 +156,9 @@ Note: kubeadm upgrade also automatically renews the certificates that it manages
 Note: If kubeadm upgrade plan shows any component configs that require manual upgrade, users must provide a config file with replacement configs to kubeadm upgrade apply via the --config command line flag. Failing to do so will cause kubeadm upgrade apply to exit with an error and not perform an upgrade.
 
 Choose a version to upgrade to, and run the appropriate command. For example:v1.19.2
+### Let’s upgrade now.
+Upgrade Kubernetes Cluster
+Run the command which we got from the above output. This will pull the required images and start to upgrade the cluster.
 ```
 [root@kmaster ~]# kubeadm upgrade apply v1.19.2
 [upgrade/config] Making sure the configuration is correct:
@@ -232,6 +239,7 @@ Static pod: kube-scheduler-kmaster.mylab.com hash: 6c2614c45defe847469047ffeb7b4
 [upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets if you haven't already done so.
 [root@kmaster ~]#
 ```
+That’s it, we have upgraded the cluster. Let’s try to get the nodes to verify the version.
 
 ON OTHER TERMINAL WE CAN SEE OUR NGINX PODS DID NOT BREAK
 ```
@@ -256,7 +264,6 @@ Client Version: v1.18.4
 Server Version: v1.19.2
 ```
 On control machine , Let’s see how to drain the host 
-
 ```
 user@lab-server:~/projects/kubernetes$ kubectl drain kmaster.mylab.com --ignore-daemonsets
 node/kmaster.mylab.com cordoned
@@ -317,7 +324,7 @@ Updated:
 
 Complete!
 ```
-RESTART KUBELET SERVICE on MASTER NODE
+RESTART KUBELET SERVICE on MASTER NODE TO MAKE IT EFFECTIVE
 ```
 [root@kmaster kubernetes]# systemctl daemon-reload
 [root@kmaster kubernetes]# systemctl restart kubelet
@@ -364,7 +371,7 @@ deployment.apps/nginx   2/2     2            2           36m   nginx        ngin
 NAME                              DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES   SELECTOR
 replicaset.apps/nginx-f89759699   2         2         2       36m   nginx        nginx    app=nginx,pod-template-hash=f89759699
 ```
-
+Once again run the get command to print the version. Now we can see the upgraded version of master node as v1.19.2.
 ```
 user@lab-server:~/projects/kubernetes$ kubectl get nodes
 NAME                 STATUS                     ROLES    AGE    VERSION
@@ -372,6 +379,7 @@ kmaster.mylab.com    Ready,SchedulingDisabled   master   122m   v1.19.2
 kworker1.mylab.com   Ready                      <none>   116m   v1.18.2
 kworker2.mylab.com   Ready                      <none>   113m   v1.18.2
 ```
+That’s it for the master node part in our “Upgrade Kubernetes cluster” guide.
 
 NOW UNCORDON THE MASTER NODE , SO MASTER WILL BE IN "Ready" STATUS
 Bring the node back online by marking it schedulable:
@@ -386,11 +394,13 @@ kworker1.mylab.com   Ready    <none>   118m   v1.18.2
 kworker2.mylab.com   Ready    <none>   114m   v1.18.2
 ```
 ## Upgrade worker nodes
+Now it’s time to start the upgrade with the worker nodes.
 
 Now lets upgrade on KWORKER1 Node
 
 Login as root to KWORKER1
 Prepare the KWORKER1 node for maintenance by marking it unschedulable and evicting the workloads:
+
 ```
 user@lab-server:~/projects/kubernetes$ kubectl drain kworker1.mylab.com --ignore-daemonsets
 node/kworker1.mylab.com cordoned
@@ -404,7 +414,10 @@ pod/nginx-f89759699-rqfhm evicted
 node/kworker1.mylab.com evicted
 
 ```
+ After drain the node, the scheduling with be disabled on kworker1.mylab.com
+ 
  FROM CONTROL NODE : NOW WE CAN SEE THE NGINXPOD GOT DELETED FROM KWORKER1 & GOT CREATED ON KWORKER2
+ Once again verify where the pods are residing.
  ```
  user@lab-server:~/projects/kubernetes$ kubectl get all -o wide
 NAME                        READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
@@ -421,6 +434,7 @@ NAME                              DESIRED   CURRENT   READY   AGE   CONTAINERS  
 replicaset.apps/nginx-f89759699   2         2         2       47m   nginx        nginx    app=nginx,pod-template-hash=f89759699
 user@lab-server:~/projects/kubernetes$
 ```
+Now, we are able to see the pods are not running on kworker2.mylab.com
 
 ON KWORKER1 as root
 ```
@@ -518,8 +532,6 @@ deployment.apps/nginx   2/2     2            2           63m   nginx        ngin
 
 NAME                              DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES   SELECTOR
 replicaset.apps/nginx-f89759699   2         2         2       63m   nginx        nginx    app=nginx,pod-template-hash=f89759699
-
-
 
 user@lab-server:~/projects/kubernetes$ kubectl get nodes
 NAME                 STATUS                     ROLES    AGE    VERSION
