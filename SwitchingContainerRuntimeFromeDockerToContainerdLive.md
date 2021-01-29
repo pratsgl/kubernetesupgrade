@@ -1,4 +1,4 @@
-# LIVE swithcing of Container runtime from Docker to Containerd on Kubernetes 1.20
+# LIVE switching of Container runtime from Docker to Containerd on Kubernetes 1.20
 
 The following document runs you through how to change the container runtime (From Docker to Containerd) on your existing kubernetes cluster with workloads running.
 
