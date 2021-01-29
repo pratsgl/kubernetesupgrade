@@ -394,3 +394,94 @@ nginx-6799fc88d8-nzql4   1/1     Running   0          2m30s   192.168.94.5     k
 nginx-6799fc88d8-w89jj   1/1     Running   0          77s     192.168.94.6     kworker1.mylab.com   <none>           <none>
 ```
 ## On kmaster node , lets change Container runtime from Docker to Containerd 
+Let's cordon kmaster node , so no pods get scheduled on that host
+```
+user@lab-system:~/kubernetes$ kubectl cordon kmaster.mylab.com
+node/kmaster.mylab.com cordoned
+```
+Now let's drain kmaster node 
+```
+user@lab-system:~/kubernetes$ kubectl drain kmaster.mylab.com --ignore-daemonsets
+node/kmaster.mylab.com already cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-blsr7, kube-system/kube-proxy-9lj6q
+evicting pod kube-system/calico-kube-controllers-57fc9c76cc-s8jhd
+evicting pod kube-system/coredns-74ff55c5b-9gnhz
+evicting pod kube-system/coredns-74ff55c5b-mhp7b
+pod/calico-kube-controllers-57fc9c76cc-s8jhd evicted
+pod/coredns-74ff55c5b-mhp7b evicted
+pod/coredns-74ff55c5b-9gnhz evicted
+node/kmaster.mylab.com evicted
+```
+On other terminal , lets login to kmaster as "root" user & repeat same steps as we did on kworker1 & 2
+
+```
+[root@kmaster ~]# systemctl stop kubelet
+```
+Note : We will loose access to cluster at this stage , its OK it should be back once we starte kubelet service again in a while 
+```
+user@lab-system:~/kubernetes$ kubectl get nodes -o wide
+The connection to the server 172.42.42.100:6443 was refused - did you specify the right host or port?
+```
+```
+[root@kmaster ~]# rpm -e docker-ce docker-ce-cli docker-ce-rootless-extras
+
+[root@kmaster ~]# vi /etc/containerd/config.toml
+from 
+disabled_plugins = ["cri"]
+to
+#disabled_plugins = ["cri"]
+```
+To make it effective restart containerd service
+```
+[root@kmaster ~]# systemctl restart containerd
+```
+By default usage of "cri" is disabled , so we need to enable by editing following containerd config file
+```
+[root@kmaster ~]# vi /var/lib/kubelet/kubeadm-flags.env 
+
+[root@kmaster ~]# cat /var/lib/kubelet/kubeadm-flags.env 
+from 
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2"
+to
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2 --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+```
+Restart kubelet service
+```
+[root@kmaster ~]# systemctl restart kubelet
+
+[root@kmaster ~]# logout
+```
+Now we can see kmaster,kworker1 & kworker2 are using containerd 
+```
+user@lab-system:~/kubernetes$ kubectl get nodes,pods -o wide
+NAME                      STATUS                     ROLES                  AGE     VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+node/kmaster.mylab.com    Ready,SchedulingDisabled   control-plane,master   4h14m   v1.20.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+node/kworker1.mylab.com   Ready                      <none>                 4h6m    v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+node/kworker2.mylab.com   Ready                      <none>                 3h59m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+
+NAME                         READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
+pod/nginx-6799fc88d8-54h75   1/1     Running   0          31m   192.168.28.196   kworker2.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-jbq7x   1/1     Running   0          31m   192.168.28.197   kworker2.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-nzql4   1/1     Running   0          12m   192.168.94.5     kworker1.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-w89jj   1/1     Running   0          11m   192.168.94.6     kworker1.mylab.com   <none>           <none>
+
+```
+Lets uncordon kmaster
+```
+user@lab-system:~/kubernetes$ kubectl uncordon kmaster.mylab.com
+node/kmaster.mylab.com uncordoned
+```
+We now switched all our nodes to use containerd as CONTAINER-RUNTIME
+```
+user@lab-system:~/kubernetes$ kubectl get nodes,pods -o wide
+NAME                      STATUS   ROLES                  AGE     VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+node/kmaster.mylab.com    Ready    control-plane,master   4h16m   v1.20.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+node/kworker1.mylab.com   Ready    <none>                 4h7m    v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+node/kworker2.mylab.com   Ready    <none>                 4h1m    v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+
+NAME                         READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
+pod/nginx-6799fc88d8-54h75   1/1     Running   0          33m   192.168.28.196   kworker2.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-jbq7x   1/1     Running   0          33m   192.168.28.197   kworker2.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-nzql4   1/1     Running   0          14m   192.168.94.5     kworker1.mylab.com   <none>           <none>
+pod/nginx-6799fc88d8-w89jj   1/1     Running   0          13m   192.168.94.6     kworker1.mylab.com   <none>           <none>
+```
