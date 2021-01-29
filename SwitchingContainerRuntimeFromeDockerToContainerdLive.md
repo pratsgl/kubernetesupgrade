@@ -64,6 +64,178 @@ nginx-6799fc88d8-7gcbh   1/1     Running   0          81s   192.168.94.4   kwork
 nginx-6799fc88d8-kqmrw   1/1     Running   0          14m   192.168.94.2   kworker1.mylab.com   <none>           <none>
 nginx-6799fc88d8-wtwrz   1/1     Running   0          81s   192.168.94.3   kworker1.mylab.com   <none>           <none>
 ```
+On other terminal , lets login to kworker2 as root user & check docker installation 
+
+```
+[root@kworker2 ~]# rpm -qa | grep docker
+docker-ce-20.10.2-3.el7.x86_64
+docker-ce-cli-20.10.2-3.el7.x86_64
+docker-ce-rootless-extras-20.10.2-3.el7.x86_64
+
+root@kworker2 ~]# docker version
+Client: Docker Engine - Community
+ Version:           20.10.2
+ API version:       1.41
+ Go version:        go1.13.15
+ Git commit:        2291f61
+ Built:             Mon Dec 28 16:17:48 2020
+ OS/Arch:           linux/amd64
+ Context:           default
+ Experimental:      true
+
+Server: Docker Engine - Community
+ Engine:
+  Version:          20.10.2
+  API version:      1.41 (minimum version 1.12)
+  Go version:       go1.13.15
+  Git commit:       8891c58
+  Built:            Mon Dec 28 16:16:13 2020
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          1.4.3
+  GitCommit:        269548fa27e0089a8b8278fc4fc781d7f65a939b
+ runc:
+  Version:          1.0.0-rc92
+  GitCommit:        ff819c7e9184c13b7c2607fe6c30ae19403a7aff
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+
+
+[root@kworker2 ~]# docker ps
+CONTAINER ID   IMAGE                   COMMAND                  CREATED             STATUS             PORTS     NAMES
+74dc28aa7f18   calico/node             "start_runit"            About an hour ago   Up About an hour             k8s_calico-node_calico-node-28wpk_kube-system_6c56c445-70cc-46f9-a00c-dfa42c9f3281_0
+af56f3174b38   k8s.gcr.io/kube-proxy   "/usr/local/bin/kube…"   About an hour ago   Up About an hour             k8s_kube-proxy_kube-proxy-scfvt_kube-system_afe395f8-3684-4069-bbb0-b27c0b2314f2_0
+5b555e6d825b   k8s.gcr.io/pause:3.2    "/pause"                 About an hour ago   Up About an hour             k8s_POD_calico-node-28wpk_kube-system_6c56c445-70cc-46f9-a00c-dfa42c9f3281_0
+5a63d1680f69   k8s.gcr.io/pause:3.2    "/pause"                 About an hour ago   Up About an hour             k8s_POD_kube-proxy-scfvt_kube-system_afe395f8-3684-4069-bbb0-b27c0b2314f2_0
+
+
+[root@kworker2 ~]# ctr --namespace moby container list
+CONTAINER                                                           IMAGE    RUNTIME                  
+5a63d1680f69e6d02f46b8d8a5268431848441dbe74fa595cc7c8747fa2eb06e    -        io.containerd.runc.v2    
+5b555e6d825bffc13bd968b2ececfaba3d985b4650441c77fb3a7b318f32aac7    -        io.containerd.runc.v2    
+74dc28aa7f1872ce3fa9f8f0b27912fb00f680f3a5dcc24cf2f3d37a3204fb79    -        io.containerd.runc.v2    
+af56f3174b38927633831db86971b56287ee308d2dbefea30cdb5c09a06e773a    -        io.containerd.runc.v2 
+
+```
+We need to stop docker & kubelet service 
+```
+[root@kworker2 ~]# systemctl stop docker
+[root@kworker2 ~]# systemctl stop kubelet
+```
+Uninstall docker 
+```
+[root@kworker2 ~]# rpm -e docker-ce docker-ce-cli docker-ce-rootless-extras
+
+[root@kworker2 ~]# rpm -qa | grep docker
+
+[root@kworker2 ~]# ctr namespace list
+NAME LABELS 
+moby   
+     
+[root@kworker2 ~]# ctr --namespace moby container list
+CONTAINER    IMAGE    RUNTIME
+```
+Check containerd & its configuration file
+```
+[root@kworker2 ~]# rpm -qa containerd.io
+containerd.io-1.4.3-3.1.el7.x86_64
+
+[root@kworker2 ~]# rpm -ql containerd.io | grep toml
+/etc/containerd/config.toml
+/usr/share/man/man5/containerd-config.toml.5
+```
+By default usage of "cri" is disabled , so we need to enable by editing following containerd config file
+```
+[root@kworker2 ~]# vi /etc/containerd/config.toml
+from 
+disabled_plugins = ["cri"]
+to
+#disabled_plugins = ["cri"]
+```
+To make it effective restart containerd service
+```
+[root@kworker2 ~]# systemctl restart containerd
+
+[root@kworker2 ~]# systemctl status containerd
+● containerd.service - containerd container runtime
+   Loaded: loaded (/usr/lib/systemd/system/containerd.service; disabled; vendor preset: disabled)
+   Active: active (running) since Fri 2021-01-29 06:35:41 UTC; 2min 1s ago
+     Docs: https://containerd.io
+  Process: 26469 ExecStartPre=/sbin/modprobe overlay (code=exited, status=0/SUCCESS)
+ Main PID: 26471 (containerd)
+    Tasks: 15
+   Memory: 26.8M
+   CGroup: /system.slice/containerd.service
+           └─26471 /usr/bin/containerd
+
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.128949812Z" level=info msg="loading plugin \"io.con...rpc.v1
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.129423591Z" level=info msg=serving... address=/run/....ttrpc
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.129518949Z" level=info msg=serving... address=/run/...d.sock
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.129608746Z" level=info msg="containerd successfully...5628s"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135395049Z" level=info msg="Start subscribing conta...event"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135497250Z" level=info msg="Start recovering state"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135783602Z" level=info msg="Start event monitor"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135809409Z" level=info msg="Start snapshots syncer"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135835808Z" level=info msg="Start cni network conf syncer"
+Jan 29 06:35:41 kworker2.mylab.com containerd[26471]: time="2021-01-29T06:35:41.135845968Z" level=info msg="Start streaming server"
+Hint: Some lines were ellipsized, use -l to show in full.
+```
+We need to now change "kubelet" configuration , edit following file and add 2 parameters container-runtime & container-runtime-endpoint
+```
+root@kworker2 ~]# vi /var/lib/kubelet/kubeadm-flags.env 
+
+[root@kworker2 ~]# cat /var/lib/kubelet/kubeadm-flags.env 
+from 
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2"
+to
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2 --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+```
+Now restart kubelet service
+```
+[root@kworker2 ~]# systemctl start kubelet
+
+[root@kworker2 ~]# systemctl status kubelet
+● kubelet.service - kubelet: The Kubernetes Node Agent
+   Loaded: loaded (/usr/lib/systemd/system/kubelet.service; enabled; vendor preset: disabled)
+  Drop-In: /usr/lib/systemd/system/kubelet.service.d
+           └─10-kubeadm.conf
+   Active: active (running) since Fri 2021-01-29 06:42:41 UTC; 2s ago
+     Docs: https://kubernetes.io/docs/
+ Main PID: 26549 (kubelet)
+    Tasks: 9
+   Memory: 21.7M
+   CGroup: /system.slice/kubelet.service
+           └─26549 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.co...
+
+Jan 29 06:42:41 kworker2.mylab.com systemd[1]: Started kubelet: The Kubernetes Node Agent.
+Jan 29 06:42:41 kworker2.mylab.com kubelet[26549]: W0129 06:42:41.363814   26549 server.go:191] Warning: For remote container runti...nstead
+Jan 29 06:42:41 kworker2.mylab.com kubelet[26549]: I0129 06:42:41.387538   26549 server.go:416] Version: v1.20.2
+Jan 29 06:42:41 kworker2.mylab.com kubelet[26549]: I0129 06:42:41.388474   26549 server.go:837] Client rotation is on, will bootstr...ground
+Jan 29 06:42:41 kworker2.mylab.com kubelet[26549]: I0129 06:42:41.403603   26549 certificate_store.go:130] Loading cert/key pair fr....pem".
+Jan 29 06:42:41 kworker2.mylab.com kubelet[26549]: I0129 06:42:41.404779   26549 dynamic_cafile_content.go:167] Starting client-ca-...ca.crt
+Hint: Some lines were ellipsized, use -l to show in full.
+```
+
+```
+[root@kworker2 ~]# ctr namespace list
+NAME   LABELS 
+k8s.io        
+moby 
+
+[root@kworker2 ~]# ctr --namespace k8s.io container list
+CONTAINER                                                           IMAGE                                    RUNTIME                  
+2a468ecdb0cabaf44a8fe46e209c0fb1f0470a313da397fcca26cffd81b6226e    docker.io/calico/cni:v3.16.6             io.containerd.runc.v2    
+4f9de04aec31e59ef1c83194560f09eb8abdf87e309a1cb549bbeedab540f2fd    docker.io/calico/node:v3.16.6            io.containerd.runc.v2    
+60903d1a7c02216b0cebebe4173ff248159c3ae28212471f4b6ed0e54748ce63    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2    
+66400c2313408443a280a205e06a91264c652fb475b56484c5a7a0b0a95349c2    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2  
+```
+
+
+
+
+
 
 
 ## On kworker1 node , lets change Container runtime from Docker to Containerd 
