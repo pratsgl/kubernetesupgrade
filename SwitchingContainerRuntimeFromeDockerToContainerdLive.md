@@ -261,4 +261,136 @@ kworker1.mylab.com   Ready    <none>                 123m   v1.20.2   172.42.42.
 kworker2.mylab.com   Ready    <none>                 116m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
 ```
 ## On kworker1 node , lets change Container runtime from Docker to Containerd 
+Let's cordon kworker1 node , so no pods get scheduled on that host
+```
+user@lab-system:~/kubernetes$ kubectl cordon kworker1.mylab.com
+node/kworker1.mylab.com cordoned
+
+user@lab-system:~/kubernetes$ kubectl get nodes
+NAME                 STATUS                     ROLES                  AGE     VERSION
+kmaster.mylab.com    Ready                      control-plane,master   3h41m   v1.20.2
+kworker1.mylab.com   Ready,SchedulingDisabled   <none>                 3h33m   v1.20.2
+kworker2.mylab.com   Ready                      <none>                 3h26m   v1.20.2
+```
+Now let's drain kworker1 node , so pods get evicted on kworker1 node and gets scheduled on kworker2
+```
+user@lab-system:~/kubernetes$ kubectl drain kworker1.mylab.com --ignore-daemonsets
+node/kworker1.mylab.com already cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-db85j, kube-system/kube-proxy-xmgwn
+evicting pod default/nginx-6799fc88d8-7gcbh
+evicting pod default/nginx-6799fc88d8-kqmrw
+evicting pod default/nginx-6799fc88d8-wtwrz
+evicting pod default/nginx-6799fc88d8-4pc2d
+pod/nginx-6799fc88d8-kqmrw evicted
+pod/nginx-6799fc88d8-4pc2d evicted
+pod/nginx-6799fc88d8-wtwrz evicted
+pod/nginx-6799fc88d8-7gcbh evicted
+node/kworker1.mylab.com evicted
+```
+We can see all the pods are now running on kworker2 node
+```
+[vagrant@kmaster ~]$ kubectl get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE     IP               NODE                 NOMINATED NODE   READINESS GATES
+nginx-6799fc88d8-54h75   1/1     Running   0          3m30s   192.168.28.196   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-jbq7x   1/1     Running   0          3m30s   192.168.28.197   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-rdfh4   1/1     Running   0          3m30s   192.168.28.195   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-tlxkx   1/1     Running   0          3m30s   192.168.28.198   kworker2.mylab.com   <none>           <none>
+```
+```
+user@lab-system:~/kubernetes$ kubectl get nodes
+NAME                 STATUS                     ROLES                  AGE     VERSION
+kmaster.mylab.com    Ready                      control-plane,master   3h45m   v1.20.2
+kworker1.mylab.com   Ready,SchedulingDisabled   <none>                 3h37m   v1.20.2
+kworker2.mylab.com   Ready                      <none>                 3h30m   v1.20.2
+```
+On other terminal , lets login to kworker1 as "root" user & repeat same steps as we did on kworker2
+```
+[root@kworker1 ~]# systemctl stop kubelet
+[root@kworker1 ~]# systemctl stop docker
+Warning: Stopping docker.service, but it can still be activated by:
+  docker.socket
+[root@kworker1 ~]# rpm -e docker-ce docker-ce-cli docker-ce-rootless-extras
+```
+By default usage of "cri" is disabled , so we need to enable by editing following containerd config file
+```
+[root@kworker1 ~]# vi /etc/containerd/config.toml
+from 
+disabled_plugins = ["cri"]
+to
+#disabled_plugins = ["cri"]
+```
+To make it effective restart containerd service
+```
+[root@kworker1 ~]# systemctl restart containerd
+```
+We need to now make "kubelet" configuration , edit following file and add 2 parameters container-runtime & container-runtime-endpoint
+```
+[root@kworker1 ~]# vi /var/lib/kubelet/kubeadm-flags.env 
+
+[root@kworker1 ~]# cat /var/lib/kubelet/kubeadm-flags.env 
+from 
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2"
+to
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2 --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+```
+Restart kubelet service
+```
+[root@kworker1 ~]# systemctl restart kubelet
+[root@kworker1 ~]# ctr namespace list
+NAME   LABELS 
+k8s.io        
+moby 
+
+[root@kworker1 ~]# ctr --namespace k8s.io container list
+CONTAINER                                                           IMAGE                 RUNTIME                                                                                                           
+09e19608bf4f683eaad553f81b4b197bbdd21b48c32f1264adc1ff4ebfb4c575    k8s.gcr.io/pause:3.2  io.containerd.runc.v2                                                                                          
+860f74ce7b2650f4e35f3ef044e971bb4c423c9e00ed41318c85e21a150943b2    k8s.gcr.io/pause:3.2  io.containerd.runc.v2
+```
+Now you can see STATUS from NotReady to Ready & CONTAINER-RUNTIME now for kworker2 & kworker are "containerd://1.4.3" (scroll to right >> )
+```
+user@lab-system:~/kubernetes$ kubectl get nodes
+NAME                 STATUS                     ROLES                  AGE     VERSION
+kmaster.mylab.com    Ready                      control-plane,master   3h58m   v1.20.2
+kworker1.mylab.com   Ready,SchedulingDisabled   <none>                 3h50m   v1.20.2
+kworker2.mylab.com   Ready                      <none>                 3h43m   v1.20.2
+```
+Now lets uncordon kworker1 node
+```
+user@lab-system:~/kubernetes$ kubectl uncordon kworker1.mylab.com
+node/kworker1.mylab.com uncordoned
+```
+Now we can see both kworker1 & kworker2 are using containerd 
+```
+user@lab-system:~/kubernetes$ kubectl get nodes -o wide
+NAME                 STATUS   ROLES                  AGE     VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+kmaster.mylab.com    Ready    control-plane,master   3h59m   v1.20.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker1.mylab.com   Ready    <none>                 3h51m   v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+kworker2.mylab.com   Ready    <none>                 3h44m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+```
+You can observer pods are running healthy
+```
+user@lab-system:~/kubernetes$ kubectl get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE   IP               NODE                 NOMINATED NODE   READINESS GATES
+nginx-6799fc88d8-54h75   1/1     Running   0          17m   192.168.28.196   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-jbq7x   1/1     Running   0          17m   192.168.28.197   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-rdfh4   1/1     Running   0          17m   192.168.28.195   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-tlxkx   1/1     Running   0          17m   192.168.28.198   kworker2.mylab.com   <none>           <none>
+```
+Just to rebalance pods run on both nodes, lets delete 2 nginx pods on kworker2
+
+```
+user@lab-system:~/kubernetes$ kubectl delete pod nginx-6799fc88d8-tlxkx
+pod "nginx-6799fc88d8-tlxkx" deleted
+
+user@lab-system:~/kubernetes$ kubectl delete pod nginx-6799fc88d8-rdfh4
+pod "nginx-6799fc88d8-rdfh4" deleted
+
+
+user@lab-system:~/kubernetes$ kubectl get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE     IP               NODE                 NOMINATED NODE   READINESS GATES
+nginx-6799fc88d8-54h75   1/1     Running   0          21m     192.168.28.196   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-jbq7x   1/1     Running   0          21m     192.168.28.197   kworker2.mylab.com   <none>           <none>
+nginx-6799fc88d8-nzql4   1/1     Running   0          2m30s   192.168.94.5     kworker1.mylab.com   <none>           <none>
+nginx-6799fc88d8-w89jj   1/1     Running   0          77s     192.168.94.6     kworker1.mylab.com   <none>           <none>
+```
 ## On kmaster node , lets change Container runtime from Docker to Containerd 
