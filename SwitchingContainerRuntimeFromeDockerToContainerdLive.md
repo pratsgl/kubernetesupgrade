@@ -31,7 +31,7 @@ nginx-6799fc88d8-kqmrw   1/1     Running   0          2m13s   192.168.94.2     k
 nginx-6799fc88d8-wvhbc   1/1     Running   0          5m39s   192.168.28.193   kworker2.mylab.com   <none>           <none>
 ```
 ## On kworker2 node , lets change Container runtime from Docker to Containerd 
-Let's cordon kworker2 node , so no pods get scheduled on that host 
+Let's cordon kworker2 node , so no pods get scheduled on that host  
 
 ```
 user@lab-system:~/kubernetes$ kubectl cordon kworker2.mylab.com
