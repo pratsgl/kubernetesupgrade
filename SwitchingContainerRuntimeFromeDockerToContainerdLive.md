@@ -231,7 +231,7 @@ CONTAINER                                                           IMAGE       
 60903d1a7c02216b0cebebe4173ff248159c3ae28212471f4b6ed0e54748ce63    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2    
 66400c2313408443a280a205e06a91264c652fb475b56484c5a7a0b0a95349c2    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2  
 ```
-Now you can see STATUS from NotReady to Ready & CONTAINER-RUNTIME now for kworker2 is "containerd://1.4.3" 
+Now you can see STATUS from NotReady to Ready & CONTAINER-RUNTIME now for kworker2 is "containerd://1.4.3" (scroll to right >> )
 ```
 user@lab-system:~/kubernetes$ kubectl get nodes  -o wide
 NAME                 STATUS                     ROLES                  AGE    VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
@@ -240,10 +240,25 @@ kworker1.mylab.com   Ready                      <none>                 119m   v1
 kworker2.mylab.com   Ready,SchedulingDisabled   <none>                 113m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
 ```
 
+You can observer pods are running healthy
+```
+user@lab-system:~/kubernetes$ kubectl get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE   IP             NODE                 NOMINATED NODE   READINESS GATES
+nginx-6799fc88d8-4pc2d   1/1     Running   0          56m   192.168.94.1   kworker1.mylab.com   <none>           <none>
+nginx-6799fc88d8-7gcbh   1/1     Running   0          43m   192.168.94.4   kworker1.mylab.com   <none>           <none>
+nginx-6799fc88d8-kqmrw   1/1     Running   0          56m   192.168.94.2   kworker1.mylab.com   <none>           <none>
+nginx-6799fc88d8-wtwrz   1/1     Running   0          43m   192.168.94.3   kworker1.mylab.com   <none>           <none>
+```
+Now lets uncordon kworker2 node
+```
+user@lab-system:~/kubernetes$ kubectl uncordon kworker2.mylab.com
+node/kworker2.mylab.com uncordoned
 
-
-
-
-
+user@lab-system:~/kubernetes$ kubectl get nodes  -o wide
+NAME                 STATUS   ROLES                  AGE    VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+kmaster.mylab.com    Ready    control-plane,master   131m   v1.20.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker1.mylab.com   Ready    <none>                 123m   v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker2.mylab.com   Ready    <none>                 116m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+```
 ## On kworker1 node , lets change Container runtime from Docker to Containerd 
 ## On kmaster node , lets change Container runtime from Docker to Containerd 
