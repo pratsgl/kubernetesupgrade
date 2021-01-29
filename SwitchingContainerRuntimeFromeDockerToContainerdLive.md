@@ -231,7 +231,14 @@ CONTAINER                                                           IMAGE       
 60903d1a7c02216b0cebebe4173ff248159c3ae28212471f4b6ed0e54748ce63    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2    
 66400c2313408443a280a205e06a91264c652fb475b56484c5a7a0b0a95349c2    k8s.gcr.io/pause:3.2                     io.containerd.runc.v2  
 ```
-
+Now you can see STATUS from NotReady to Ready & CONTAINER-RUNTIME now for kworker2 is "containerd://1.4.3" 
+```
+user@lab-system:~/kubernetes$ kubectl get nodes  -o wide
+NAME                 STATUS                     ROLES                  AGE    VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                KERNEL-VERSION           CONTAINER-RUNTIME
+kmaster.mylab.com    Ready                      control-plane,master   128m   v1.20.2   172.42.42.100   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker1.mylab.com   Ready                      <none>                 119m   v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
+kworker2.mylab.com   Ready,SchedulingDisabled   <none>                 113m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   containerd://1.4.3
+```
 
 
 
