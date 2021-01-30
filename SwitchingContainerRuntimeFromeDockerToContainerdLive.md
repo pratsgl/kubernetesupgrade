@@ -10,7 +10,7 @@ kmaster.mylab.com    Ready    control-plane,master   43m   v1.20.2   172.42.42.1
 kworker1.mylab.com   Ready    <none>                 35m   v1.20.2   172.42.42.101   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
 kworker2.mylab.com   Ready    <none>                 28m   v1.20.2   172.42.42.102   <none>        CentOS Linux 7 (Core)   3.10.0-1127.el7.x86_64   docker://20.10.2
 ``` 
-Lets create a deployment with nginx & scale it to 4 replicas
+Lets create a deployment with nginx & scale it to 4 replicas (we can see 2 pods on each node)
 
 ```
 user@lab-system:~/kubernetes$ kubectl create deploy nginx --image nginx
